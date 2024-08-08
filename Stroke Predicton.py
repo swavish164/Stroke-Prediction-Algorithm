@@ -41,6 +41,11 @@ X_train = trainData
 Y_train = trainData[target]
 X_test = testData
 Y_test = testData[target]
+initial_prediction = np.mean(Y_train)
+p = 1 / (1 + np.exp(-initial_prediction))
+residuals = Y_train - p
+X_train['residuals'] = residuals
+max_depth = 5
 
 
 class gradientBoostingRegressor:
@@ -57,38 +62,40 @@ class gradientBoostingRegressor:
     self.models = []
     self.losses = []
 
-  def buildTree(self, X, Y, depth):
-    if depth == self.max_depth:
-      return
-    #for i in range(len(X)):
-
-
 
 def split_and_count(grouped):
   size = len(grouped)
   midpoint = int(size / 2)
-  lower = grouped[:midpoint]
-  upper = grouped[midpoint:]
-  lowerCount = 0
-  upperCount = 0
-  upper_stroke_count = 0
-  lower_stroke_count = 0
-  for groups in lower:
-    lowerCount += groups[1]['stroke'].size
-    try:
-      lower_stroke_count += groups[1]['stroke'].value_counts()[1]
-    except KeyError:
-      pass 
-  for groups in upper:
-    upperCount += groups[1]['stroke'].size
-    try:
-      upper_stroke_count += groups[1]['stroke'].value_counts()[1]
-    except KeyError:
-      pass
-  return lower_stroke_count, upper_stroke_count,lowerCount, upperCount
+  if(midpoint>0):
+    lower = grouped[:midpoint]
+    upper = grouped[midpoint:]
+    splitPoint = grouped[midpoint]
+    lowerCount = 0
+    upperCount = 0
+    upper_stroke_count = 0
+    lower_stroke_count = 0
+    for groups in lower:
+      lowerCount += groups[1]['stroke'].size
+      try:
+        lower_stroke_count += groups[1]['stroke'].value_counts()[1]
+      except KeyError:
+        pass
+    for groups in upper:
+      upperCount += groups[1]['stroke'].size
+      try:
+        upper_stroke_count += groups[1]['stroke'].value_counts()[1]
+      except KeyError:
+        pass
+    else:
+      lower_stroke_count = 1
+      upper_stroke_count = 1
+      lowerCount = 1
+      upperCount = 1
+      splitPoint = 1
+  return lower_stroke_count, upper_stroke_count, lowerCount, upperCount, splitPoint
 
 
-def best_split(X, Y):
+def best_split(X):
   best_split = None
   best_score = -1
   for feature in X.columns:
@@ -97,15 +104,55 @@ def best_split(X, Y):
       grouped = []
       for group in groups:
         grouped.append(group)
-      lower_counts, upper_counts,lowerCount,upperCount = split_and_count(grouped)
-    giniLower = 1 - ((lower_counts / lowerCount)**2 + ((lowerCount-lower_counts)/lowerCount)**2 ) 
-    giniUpper = 1 - ((upper_counts / upperCount)**2 + ((upperCount-upper_counts)/upperCount)**2 )
+      lower_counts, upper_counts, lowerCount, upperCount, splitPoint = split_and_count(
+          grouped)
+    giniLower = 1 - ((lower_counts / lowerCount)**2 +
+                     ((lowerCount - lower_counts) / lowerCount)**2)
+    giniUpper = 1 - ((upper_counts / upperCount)**2 +
+                     ((upperCount - upper_counts) / upperCount)**2)
     gini = max(giniLower, giniUpper)
-    print(gini)
     if gini > best_score:
       best_score = gini
-      best_split = (feature, None)
-  return best_score
+      best_feature = feature
+      best_split = splitPoint
+      lower = lowerCount
+  return best_score, best_feature, best_split,lower
+
+
+class DecisionTreeNode:
+
+  def __init__(self,
+               feature=None,
+               threshold=None,
+               left=None,
+               right=None,
+               value=None):
+    self.feature = feature
+    self.threshold = threshold
+    self.left = left
+    self.right = right
+    self.value = value
+
+
+def build_tree(X, maxDepth, depth=0):
+  if (depth == max_depth):
+    leaf_value = X['residuals'].mean()
+    return DecisionTreeNode(value=leaf_value)
+  gini, feature, split,middle = best_split(X)
+  if feature is None:
+    leaf_value = X['residuals'].mean()
+    return DecisionTreeNode(value=leaf_value)
+
+  left_group = X[X[feature][:middle]]
+  right_group = X[X[feature][:middle]]
+
+  left_child = build_tree(left_group, max_depth, depth + 1)
+  right_child = build_tree(right_group, max_depth, depth + 1)
+  return DecisionTreeNode(feature=feature,
+                          threshold=middle,
+                          left=left_child,
+                          right=right_child)
+
 
 """
 def gradientBoostingAlgorithm():
@@ -119,4 +166,5 @@ def gradientBoostingAlgorithm():
     self.losses.append(gradient)
     prediction = prediction + self.learning_rate * gradient
 """
-best_split(X_train, Y_train)
+
+tree = build_tree(X_train, max_depth)
