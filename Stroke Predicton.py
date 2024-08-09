@@ -34,6 +34,12 @@ data = data[data['gender'] != 'Other']
 data = data[data['age'] >= 16]
 data = fill_bmi(data)
 data = data.drop('id', axis=1)
+for column in data:
+  unique = data[column].unique()
+  count = 0
+  if type(unique[0]) != int:
+    mapping = {value: count for count, value in enumerate(unique)}
+    data[column] = data[column].map(mapping)
 data = data.sample(n=len(data))
 testData = data.sample(n=int(len(data) * 0.2))
 trainData = data[~data.index.isin(testData.index)]
@@ -138,6 +144,7 @@ def predict(tree, x):
     return tree.value
   feature = tree.feature
   threshold = tree.threshold
+  print(threshold)
   if(x[feature] <= threshold):
     left = tree.left
     predict(tree,left)
@@ -157,11 +164,10 @@ def build_tree(X, maxDepth, depth=0):
   featureGroup = X.sort_values(by=[feature])
   left_group = featureGroup[:middle]
   right_group = featureGroup[middle:]
-
   left_child = build_tree(left_group, max_depth, depth + 1)
   right_child = build_tree(right_group, max_depth, depth + 1)
   return DecisionTreeNode(feature=feature,
-                          threshold=middle,
+  threshold=featureGroup[:middle:][feature].iloc[0],
                           left=left_child,
                           right=right_child)
 
@@ -194,6 +200,7 @@ def print_tree(node, depth=0):
         print_tree(node.right, depth + 1)
 
 predict(tree, X_test)
+print_tree(tree)
 for rows in X_test.iterrows():
   value = predict(tree, rows)
   prediction = mean + 0.1 * int(value)
