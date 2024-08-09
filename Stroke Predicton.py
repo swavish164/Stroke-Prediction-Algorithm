@@ -45,7 +45,7 @@ initial_prediction = np.mean(Y_train)
 p = 1 / (1 + np.exp(-initial_prediction))
 residuals = Y_train - p
 X_train['residuals'] = residuals
-max_depth = 5
+max_depth = 6
 
 
 class gradientBoostingRegressor:
@@ -66,7 +66,7 @@ class gradientBoostingRegressor:
 def split_and_count(grouped):
   size = len(grouped)
   midpoint = int(size / 2)
-  if(midpoint>0):
+  if (midpoint > 0):
     lower = grouped[:midpoint]
     upper = grouped[midpoint:]
     splitPoint = grouped[midpoint]
@@ -86,26 +86,26 @@ def split_and_count(grouped):
         upper_stroke_count += groups[1]['stroke'].value_counts()[1]
       except KeyError:
         pass
-    else:
-      lower_stroke_count = 1
-      upper_stroke_count = 1
-      lowerCount = 1
-      upperCount = 1
-      splitPoint = 1
+  else:
+    lower_stroke_count = 0
+    upper_stroke_count = 0
+    lowerCount = 1
+    upperCount = 1
+    splitPoint = 1
   return lower_stroke_count, upper_stroke_count, lowerCount, upperCount, splitPoint
 
 
 def best_split(X):
   best_split = None
   best_score = -1
+  grouped = []
   for feature in X.columns:
     if feature != 'stroke':
       groups = X.groupby(feature)
       grouped = []
       for group in groups:
         grouped.append(group)
-      lower_counts, upper_counts, lowerCount, upperCount, splitPoint = split_and_count(
-          grouped)
+    lower_counts, upper_counts, lowerCount, upperCount, splitPoint = split_and_count(grouped)
     giniLower = 1 - ((lower_counts / lowerCount)**2 +
                      ((lowerCount - lower_counts) / lowerCount)**2)
     giniUpper = 1 - ((upper_counts / upperCount)**2 +
@@ -116,7 +116,7 @@ def best_split(X):
       best_feature = feature
       best_split = splitPoint
       lower = lowerCount
-  return best_score, best_feature, best_split,lower
+  return best_score, best_feature, best_split, lower
 
 
 class DecisionTreeNode:
@@ -133,18 +133,30 @@ class DecisionTreeNode:
     self.right = right
     self.value = value
 
+def predict(tree, x):
+  if tree.value is not None:
+    return tree.value
+  feature = tree.feature
+  threshold = tree.threshold
+  if(x[feature] <= threshold):
+    left = tree.left
+    predict(tree,left)
+  else:
+    right = tree.right
+    predict(tree,right)
+    
 
 def build_tree(X, maxDepth, depth=0):
   if (depth == max_depth):
     leaf_value = X['residuals'].mean()
     return DecisionTreeNode(value=leaf_value)
-  gini, feature, split,middle = best_split(X)
+  gini, feature, split, middle = best_split(X)
   if feature is None:
     leaf_value = X['residuals'].mean()
     return DecisionTreeNode(value=leaf_value)
-
-  left_group = X[X[feature][:middle]]
-  right_group = X[X[feature][:middle]]
+  featureGroup = X.sort_values(by=[feature])
+  left_group = featureGroup[:middle]
+  right_group = featureGroup[middle:]
 
   left_child = build_tree(left_group, max_depth, depth + 1)
   right_child = build_tree(right_group, max_depth, depth + 1)
@@ -166,5 +178,22 @@ def gradientBoostingAlgorithm():
     self.losses.append(gradient)
     prediction = prediction + self.learning_rate * gradient
 """
+def gradientBoostingAlgorithm():
+  pass
+
 
 tree = build_tree(X_train, max_depth)
+def print_tree(node, depth=0):
+    """Recursively print the tree structure."""
+    if node.value is not None:
+        print(f"{'|  ' * depth}Predict: {node.value}")
+    else:
+        print(f"{'|  ' * depth}{node.feature} <= {node.threshold}")
+        print_tree(node.left, depth + 1)
+        print(f"{'|  ' * depth}{node.feature} > {node.threshold}")
+        print_tree(node.right, depth + 1)
+
+predict(tree, X_test)
+for rows in X_test.iterrows():
+  value = predict(tree, rows)
+  prediction = mean + 0.1 * int(value)
