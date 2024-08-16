@@ -1,6 +1,5 @@
 import pandas as pd
 import numpy as np
-import arc as arc
 import pickle
 import questions
 features = ['gender', 'age', 'hypertension', 'heart_disease', 'ever_married','work_type', 'Residence_type', 'avg_glucose_level', 'bmi', 'smoking_status']
@@ -70,25 +69,11 @@ def predict(tree, x):
     right = tree.right
     return predict(right, x)
 
-"""
-def gradientBoostingAlgorithm():
-  initial_prediction = np.mean(Y_train)
-  p = 1 / (1 + np.exp(-initial_prediction))
-  residuals = Y_train - p
-    for i in range(len(residuals)):
-      residuals[i] = residuals[i] * p * (1 - p)
-    gradient = np.sum(residuals) / len(residuals)
-    self.models.append(prediction)
-    self.losses.append(gradient)
-    prediction = prediction + self.learning_rate * gradient
-"""
-
 def testing(tree,x):
-  predictons = []
+  predictions = []
   for rows in x.iterrows():
     value = predict(tree, rows)
     predictedValue = p + (0.1 * value)
-    #print("Predicted Value",predictedValue,value,rows[1]['stroke'])
     if(predictedValue>p):
       predictedValue = 1
     else:
@@ -112,12 +97,16 @@ def print_tree(node, depth=0):
 with open("tree.pkl", "rb") as f:
   tree = pickle.load(f)
 predictions = []
-test_predictions = pd.Series(testing(tree,X_test),index=Y_test.index)
+"""test_predictions = pd.Series(testing(tree,X_test),index=Y_test.index)
 count = 0
 Y_test = pd.Series(Y_test)
 for i in range(len(Y_test)):
   if(Y_test.iloc[i] == test_predictions.iloc[i]):
     count +=1
-
-print(testing(tree,test))
+    """
+userValues = testing(tree,test)
+if(userValues[0] == 1):
+  print("Prediction is positive")
+else:
+  print("Prediction is negative")
   

@@ -101,5 +101,5 @@ def questions(count):
       clear()
       next = False
       count+=1
-  data = data._append({'gender':gender, 'age':age, 'hypertension':hypertension, 'heart_disease':heart_disease,"ever_married":ever_married, 'work_type':work_type, 'residence_type':residence_type,'avg_glucose_level': avg_glucose,'bmi':bmi,'smoking_status':smoking_status},ignore_index = True)
+  data = data._append({'gender':int(gender), 'age':int(age), 'hypertension':int(hypertension), 'heart_disease':int(heart_disease),"ever_married":int(ever_married), 'work_type':int(work_type), 'residence_type':int(residence_type),'avg_glucose_level': avg_glucose,'bmi':bmi,'smoking_status':int(smoking_status)},ignore_index = True)
   return data

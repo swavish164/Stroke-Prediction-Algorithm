@@ -1,7 +1,5 @@
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-import arc as arc
 import os
 import pickle
 
@@ -205,3 +203,4 @@ dataRepeats = 20
 x, tree = predicting(tree, X_train, dataRepeats)
 with open("tree.pkl","wb") as f:
   pickle.dump(tree,f)
+
