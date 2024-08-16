@@ -1,27 +1,14 @@
 import pandas as pd
 import numpy as np
-import geopandas
-import matplotlib.pyplot as plt
 import arc as arc
-from geodatasets import get_path
-import aqi
-from colour import Color
-import os
-
-features = [
-    'gender', 'age', 'hypertension', 'heart_disease', 'ever_married',
-    'work_type', 'Residence_type', 'avg_glucose_level', 'bmi', 'smoking_status'
-]
+import pickle
+import questions
+features = ['gender', 'age', 'hypertension', 'heart_disease', 'ever_married','work_type', 'Residence_type', 'avg_glucose_level', 'bmi', 'smoking_status']
 target = 'stroke'
-
-
-def clear():
-  os.system('cls' if os.name == 'nt' else 'clear')
-
 
 #some of the bmi values were NaN so grouping by age and gender can approximately fill in the NaN values with the mean of the age and gender group
 
-
+test = questions.questions(1)
 def fill_bmi(df):
   mean = df.groupby(['age', 'gender'])['bmi'].transform('mean')
   df['bmi'] = df['bmi'].combine_first(mean)
@@ -37,92 +24,20 @@ data = data.drop('id', axis=1)
 for column in data:
   unique = data[column].unique()
   count = 0
-  if type(unique[0]) != int:
+  if type(unique[0]) == str:
     mapping = {value: count for count, value in enumerate(unique)}
     data[column] = data[column].map(mapping)
 data = data.sample(n=len(data))
 testData = data.sample(n=int(len(data) * 0.2))
 trainData = data[~data.index.isin(testData.index)]
-X_train = trainData
 Y_train = trainData[target]
 X_test = testData
 Y_test = testData[target]
-initial_prediction = np.mean(Y_train)
-p = 1 / (1 + np.exp(-initial_prediction))
-residuals = Y_train - p
-X_train['residuals'] = residuals
-max_depth = 6
-
-
-class gradientBoostingRegressor:
-
-  def __init__(
-      self,
-      learning_rate=0.1,
-      n_estimators=100,
-      max_depth=3,
-  ):
-    self.learning_rate = learning_rate
-    self.n_estimators = n_estimators
-    self.max_depth = max_depth
-    self.models = []
-    self.losses = []
-
-
-def split_and_count(grouped):
-  size = len(grouped)
-  midpoint = int(size / 2)
-  if (midpoint > 0):
-    lower = grouped[:midpoint]
-    upper = grouped[midpoint:]
-    splitPoint = grouped[midpoint]
-    lowerCount = 0
-    upperCount = 0
-    upper_stroke_count = 0
-    lower_stroke_count = 0
-    for groups in lower:
-      lowerCount += groups[1]['stroke'].size
-      try:
-        lower_stroke_count += groups[1]['stroke'].value_counts()[1]
-      except KeyError:
-        pass
-    for groups in upper:
-      upperCount += groups[1]['stroke'].size
-      try:
-        upper_stroke_count += groups[1]['stroke'].value_counts()[1]
-      except KeyError:
-        pass
-  else:
-    lower_stroke_count = 0
-    upper_stroke_count = 0
-    lowerCount = 1
-    upperCount = 1
-    splitPoint = 1
-  return lower_stroke_count, upper_stroke_count, lowerCount, upperCount, splitPoint
-
-
-def best_split(X):
-  best_split = None
-  best_score = -1
-  grouped = []
-  for feature in X.columns:
-    if feature != 'stroke':
-      groups = X.groupby(feature)
-      grouped = []
-      for group in groups:
-        grouped.append(group)
-    lower_counts, upper_counts, lowerCount, upperCount, splitPoint = split_and_count(grouped)
-    giniLower = 1 - ((lower_counts / lowerCount)**2 +
-                     ((lowerCount - lower_counts) / lowerCount)**2)
-    giniUpper = 1 - ((upper_counts / upperCount)**2 +
-                     ((upperCount - upper_counts) / upperCount)**2)
-    gini = max(giniLower, giniUpper)
-    if gini > best_score:
-      best_score = gini
-      best_feature = feature
-      best_split = splitPoint
-      lower = lowerCount
-  return best_score, best_feature, best_split, lower
+p = 1 / (1 + np.exp(-(np.mean(Y_train))))
+pTest = 1 / (1 + np.exp(-(np.mean(Y_test))))
+residualsTest = Y_test - pTest
+X_test['residuals'] = residualsTest
+max_depth = 5
 
 
 class DecisionTreeNode:
@@ -139,38 +54,21 @@ class DecisionTreeNode:
     self.right = right
     self.value = value
 
+
 def predict(tree, x):
   if tree.value is not None:
-    return tree.value
+    value = tree.value
+    #print("Value",value)
+    return value
   feature = tree.feature
   threshold = tree.threshold
-  print(threshold)
-  if(x[feature] <= threshold):
+  #print(feature,x[1][feature],threshold)
+  if (x[1][feature] <= threshold):
     left = tree.left
-    predict(tree,left)
+    return predict(left, x)
   else:
     right = tree.right
-    predict(tree,right)
-    
-
-def build_tree(X, maxDepth, depth=0):
-  if (depth == max_depth):
-    leaf_value = X['residuals'].mean()
-    return DecisionTreeNode(value=leaf_value)
-  gini, feature, split, middle = best_split(X)
-  if feature is None:
-    leaf_value = X['residuals'].mean()
-    return DecisionTreeNode(value=leaf_value)
-  featureGroup = X.sort_values(by=[feature])
-  left_group = featureGroup[:middle]
-  right_group = featureGroup[middle:]
-  left_child = build_tree(left_group, max_depth, depth + 1)
-  right_child = build_tree(right_group, max_depth, depth + 1)
-  return DecisionTreeNode(feature=feature,
-  threshold=featureGroup[:middle:][feature].iloc[0],
-                          left=left_child,
-                          right=right_child)
-
+    return predict(right, x)
 
 """
 def gradientBoostingAlgorithm():
@@ -184,23 +82,42 @@ def gradientBoostingAlgorithm():
     self.losses.append(gradient)
     prediction = prediction + self.learning_rate * gradient
 """
-def gradientBoostingAlgorithm():
-  pass
 
-
-tree = build_tree(X_train, max_depth)
-def print_tree(node, depth=0):
-    """Recursively print the tree structure."""
-    if node.value is not None:
-        print(f"{'|  ' * depth}Predict: {node.value}")
+def testing(tree,x):
+  predictons = []
+  for rows in x.iterrows():
+    value = predict(tree, rows)
+    predictedValue = p + (0.1 * value)
+    #print("Predicted Value",predictedValue,value,rows[1]['stroke'])
+    if(predictedValue>p):
+      predictedValue = 1
     else:
-        print(f"{'|  ' * depth}{node.feature} <= {node.threshold}")
-        print_tree(node.left, depth + 1)
-        print(f"{'|  ' * depth}{node.feature} > {node.threshold}")
-        print_tree(node.right, depth + 1)
+      predictedValue = 0
+    predictions.append(predictedValue)
+  return predictions
 
-predict(tree, X_test)
-print_tree(tree)
-for rows in X_test.iterrows():
-  value = predict(tree, rows)
-  prediction = mean + 0.1 * int(value)
+
+def print_tree(node, depth=0):
+  if node.value is not None:
+    print(f"{'|  ' * depth}Predict: {node.value}")
+  else:
+    print(f"{'|  ' * depth}{node.feature} <= {node.threshold}")
+    print_tree(node.left, depth + 1)
+    print(f"{'|  ' * depth}{node.feature} > {node.threshold}")
+    print_tree(node.right, depth + 1)
+
+
+
+
+with open("tree.pkl", "rb") as f:
+  tree = pickle.load(f)
+predictions = []
+test_predictions = pd.Series(testing(tree,X_test),index=Y_test.index)
+count = 0
+Y_test = pd.Series(Y_test)
+for i in range(len(Y_test)):
+  if(Y_test.iloc[i] == test_predictions.iloc[i]):
+    count +=1
+
+print(testing(tree,test))
+  
